@@ -5,11 +5,15 @@ const {
   createUser,
   register,
   login,
+  getMe,
 } = require("../controllers/userController");
 const auth = require("../middleware/authMiddleware");
 
 // GET all users (protected)
 router.get("/", auth, getAllUsers);
+
+// Get current logged-in user
+router.get("/me", auth, getMe);
 
 // POST a new user (unprotected raw create)
 router.post("/", createUser);

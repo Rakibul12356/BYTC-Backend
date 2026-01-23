@@ -3,9 +3,9 @@ const express = require("express");
 const cors = require("cors");
 const { connectDB, getDB } = require("./config/db");
 const userRoutes = require("./routes/users");
+const authRoutes = require("./routes/auth");
 const courseRoutes = require("./routes/courses");
 const enrollmentRoutes = require("./routes/enrollments");
-
 
 const app = express();
 // Do not call listen in serverless environment (Vercel). We'll export `app` below.
@@ -54,6 +54,7 @@ app.get("/api/debug/env", (req, res) => {
 
 // Routes
 app.use("/api/users", userRoutes);
+app.use("/api/auth", authRoutes);
 app.use("/api/courses", courseRoutes);
 app.use("/api/enrollments", enrollmentRoutes);
 

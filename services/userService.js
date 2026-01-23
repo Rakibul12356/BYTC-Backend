@@ -1,6 +1,7 @@
 const { getDB, connectDB } = require("../config/db");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const { ObjectId } = require("mongodb");
 
 const getAllUsers = async () => {
   let db;
@@ -26,7 +27,7 @@ const createUser = async (userData) => {
   return await db.collection("users").insertOne(userData);
 };
 
-const register = async ({ name, email, password }) => {
+const register = async ({ name, email, password, role }) => {
   let db;
   try {
     db = getDB();
@@ -34,15 +35,33 @@ const register = async ({ name, email, password }) => {
     await connectDB();
     db = getDB();
   }
-  const existing = await db.collection("users").findOne({ email });
+  const emailNorm =
+    email && typeof email === "string"
+      ? String(email).trim().toLowerCase()
+      : "";
+  // ensure we check and store using normalized (lowercased) email to avoid duplicates
+  const existing = await db.collection("users").findOne({ email: emailNorm });
   if (existing) throw new Error("User already exists");
   const hashed = await bcrypt.hash(password, 10);
-  // ensure role defaults to 'student'
+  // normalize role: allow only 'student' or 'teacher', default to 'student'
+  const incoming =
+    role && typeof role === "string" ? String(role).trim().toLowerCase() : "";
+  const allowed = ["student", "teacher"];
+  const finalRole = allowed.includes(incoming) ? incoming : "student";
+  console.log(
+    "Register: incoming role=",
+    JSON.stringify(role),
+    "normalized=",
+    incoming,
+    "finalRole=",
+    finalRole,
+  );
+
   const user = {
     name,
-    email,
+    email: emailNorm,
     password: hashed,
-    role: "student",
+    role: finalRole,
     createdAt: new Date(),
   };
   const result = await db.collection("users").insertOne(user);
@@ -59,20 +78,28 @@ const authenticate = async ({ email, password }) => {
     await connectDB();
     db = getDB();
   }
-  const user = await db.collection("users").findOne({ email });
+  const emailNorm =
+    email && typeof email === "string"
+      ? String(email).trim().toLowerCase()
+      : "";
+  const user = await db.collection("users").findOne({ email: emailNorm });
   console.log(
     "authenticate: found user?",
     !!user,
     "email:",
-    email,
+    emailNorm,
+    "userId:",
+    user?._id,
+    "role:",
+    user?._doc?.role || user?.role,
     "hasPassword:",
-    !!(user && user.password)
+    !!(user && user.password),
   );
   if (!user) return { reason: "not_found", message: "Email not registered" };
   if (!user.password) {
     console.warn(
       "authenticate: user has no password field, cannot verify password",
-      email
+      email,
     );
     return {
       reason: "no_password",
@@ -85,11 +112,11 @@ const authenticate = async ({ email, password }) => {
       "stored password prefix:",
       typeof user.password === "string"
         ? String(user.password).slice(0, 8)
-        : typeof user.password
+        : typeof user.password,
     );
     console.log(
       "password looks like bcrypt:",
-      typeof user.password === "string" && user.password.startsWith("$2")
+      typeof user.password === "string" && user.password.startsWith("$2"),
     );
   } catch (e) {
     console.error("Error inspecting stored password for", email, e);
@@ -121,4 +148,29 @@ const authenticate = async ({ email, password }) => {
   return { user: safeUser, token };
 };
 
-module.exports = { getAllUsers, createUser, register, authenticate };
+const getUserById = async (id) => {
+  let db;
+  try {
+    db = getDB();
+  } catch (e) {
+    await connectDB();
+    db = getDB();
+  }
+  try {
+    const _id = typeof id === "string" ? new ObjectId(id) : id;
+    const user = await db.collection("users").findOne({ _id });
+    if (!user) return null;
+    const { password, ...rest } = user;
+    return rest;
+  } catch (e) {
+    return null;
+  }
+};
+
+module.exports = {
+  getAllUsers,
+  createUser,
+  register,
+  authenticate,
+  getUserById,
+};

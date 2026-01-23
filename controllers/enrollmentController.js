@@ -2,11 +2,13 @@ const enrollmentService = require("../services/enrollmentService");
 
 const createEnrollment = async (req, res) => {
   try {
-    const userId =
-      req.user && req.user._id
-        ? req.user._id
-        : req.user.id || req.user.sub || null;
-    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    // Extract userId from JWT payload (authMiddleware sets req.user to the JWT payload)
+    // JWT contains: { userId: user._id, email: user.email, role: user.role }
+    const userId = req.user?.userId || req.user?._id || req.user?.id || null;
+    if (!userId) {
+      console.error("createEnrollment: no userId in req.user", req.user);
+      return res.status(401).json({ message: "Unauthorized" });
+    }
     const { courseId } = req.body;
     if (!courseId) return res.status(400).json({ message: "Missing courseId" });
     const result = await enrollmentService.createEnrollment(userId, courseId);
@@ -21,10 +23,7 @@ const createEnrollment = async (req, res) => {
 
 const getUserEnrollments = async (req, res) => {
   try {
-    const userId =
-      req.user && req.user._id
-        ? req.user._id
-        : req.user.id || req.user.sub || null;
+    const userId = req.user?.userId || req.user?._id || req.user?.id || null;
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
     const enrollments = await enrollmentService.getUserEnrollments(userId);
     res.json(enrollments);

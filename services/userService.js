@@ -140,9 +140,13 @@ const authenticate = async ({ email, password }) => {
   const secret =
     process.env.JWT_SECRET || (isProduction ? null : "dev_jwt_secret");
   if (!secret) throw new Error("JWT_SECRET not set in .env");
-  const token = jwt.sign({ userId: user._id, email: user.email }, secret, {
-    expiresIn: "1h",
-  });
+  const token = jwt.sign(
+    { userId: user._id, email: user.email, role: user.role },
+    secret,
+    {
+      expiresIn: "1h",
+    },
+  );
   const safeUser = { ...user };
   delete safeUser.password;
   return { user: safeUser, token };
